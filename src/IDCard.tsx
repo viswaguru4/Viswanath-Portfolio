@@ -1,0 +1,25 @@
+import {useEffect,useRef,useState} from 'react';
+import * as THREE from 'three';
+import {CSS3DObject,CSS3DRenderer} from 'three/addons/renderers/CSS3DRenderer.js';
+export default function IDCard({reduced}:{reduced:boolean}){
+ const host=useRef<HTMLDivElement>(null),card=useRef<HTMLDivElement>(null),cord=useRef<SVGPathElement>(null),controls=useRef({flip:()=>{},reset:()=>{},nudge:(n:number)=>{}});const[back,setBack]=useState(false);
+ useEffect(()=>{setBack(false);const el=host.current!,face=card.current!;const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(40,1,1,2000);camera.position.z=850;const renderer=new CSS3DRenderer();renderer.domElement.className='id-renderer';el.appendChild(renderer.domElement);const object=new CSS3DObject(face);scene.add(object);
+ let x=0,y=0,vx=0,vy=0,tx=0,ty=0,drag=false,lastX=0,lastY=0,rot=0,targetRot=0,raf=0,previous=0,visible=true,w=0,h=0;
+ const draw=(now:number)=>{raf=0;if(!visible||document.hidden)return;const dt=Math.min((now-previous)/16.67,2)||1;previous=now;
+  if(drag){x+=(tx-x)*.3;y+=(ty-y)*.3;}else{vx+=(-x*.015-vx*.12)*dt;vy+=(-y*.018-vy*.13)*dt;x+=vx*dt;y+=vy*dt;}if(reduced&&!drag){x=0;y=0;vx=0;vy=0;}
+  rot+=(targetRot-rot)*(reduced?1:.12);object.position.set(x,-y-15,0);object.rotation.set(-y*.001,rot+x*.0015,-x*.0018);renderer.render(scene,camera);
+  if(cord.current){const scale=h/(2*Math.tan(20*Math.PI/180)*camera.position.z),cx=w/2+x*scale,cy=h/2+(y+15-180)*scale;cord.current.setAttribute('d',`M ${w/2} 0 Q ${w/2+x*.2} ${cy*.55} ${cx} ${cy}`);}
+  if(drag||Math.abs(x)+Math.abs(y)+Math.abs(vx)+Math.abs(vy)>.05||Math.abs(targetRot-rot)>.001)raf=requestAnimationFrame(draw);
+ };const wake=()=>{if(!raf&&visible&&!document.hidden)raf=requestAnimationFrame(draw);};
+ const resize=()=>{w=el.clientWidth;h=el.clientHeight;renderer.setSize(w,h);camera.aspect=w/h;camera.position.z=w<400?1050:850;camera.updateProjectionMatrix();wake();};const ro=new ResizeObserver(resize);ro.observe(el);
+ const down=(e:PointerEvent)=>{drag=true;lastX=e.clientX;lastY=e.clientY;tx=x;ty=y;vx=0;vy=0;face.setPointerCapture(e.pointerId);face.classList.add('dragging');wake();};
+ const move=(e:PointerEvent)=>{if(!drag)return;vx=(e.clientX-lastX)*.8;vy=(e.clientY-lastY)*.8;tx=THREE.MathUtils.clamp(tx+e.clientX-lastX,-180,180);ty=THREE.MathUtils.clamp(ty+e.clientY-lastY,-80,130);lastX=e.clientX;lastY=e.clientY;wake();};
+ const up=()=>{drag=false;face.classList.remove('dragging');wake();};face.addEventListener('pointerdown',down);face.addEventListener('pointermove',move);face.addEventListener('pointerup',up);face.addEventListener('pointercancel',up);
+ controls.current={flip:()=>{targetRot+=Math.PI;setBack(v=>!v);wake();},reset:()=>{tx=0;ty=0;drag=false;x=0;y=0;vx=0;vy=0;targetRot=0;setBack(false);wake();},nudge:(n)=>{x+=n;vx=n*.2;wake();}};
+ const io=new IntersectionObserver(([e])=>{visible=e.isIntersecting;cancelAnimationFrame(raf);raf=0;if(visible)wake();});io.observe(el);const vis=()=>{cancelAnimationFrame(raf);raf=0;wake();};document.addEventListener('visibilitychange',vis);resize();
+ return()=>{cancelAnimationFrame(raf);ro.disconnect();io.disconnect();document.removeEventListener('visibilitychange',vis);face.removeEventListener('pointerdown',down);face.removeEventListener('pointermove',move);face.removeEventListener('pointerup',up);face.removeEventListener('pointercancel',up);el.appendChild(face);renderer.domElement.remove();};
+ },[reduced]);
+ return <section className="identity-section panel" aria-labelledby="identity-heading"><div className="identity-copy"><p className="label">A little more human / 02</p><h2 id="identity-heading">BEHIND<br/>THE <em>SCREEN.</em></h2><p>Viswanath K. A developer with an engineering background, an eye for detail, and a playful side.</p><span className="drag-hint">↗ Grab the pass. Give it a swing.</span><div className="id-actions"><button className="pill" onClick={()=>controls.current.flip()} aria-pressed={back}>Flip card ↻</button><button className="pill" onClick={()=>controls.current.reset()}>Reset card</button><button className="pill" aria-label="Swing ID card" onClick={()=>controls.current.nudge(100)}>Swing ↔</button></div></div>
+ <div className="id-stage" ref={host}><svg className="lanyard" aria-hidden="true"><path ref={cord} fill="none" stroke="#777" strokeWidth="8"/><path d="M0 0"/></svg><div ref={card} className="id-card-object" role="img" aria-label="Draggable 3D ID card for Viswanath K"><div className="id-face id-front"><div className="id-slot"/><div className="id-top"><span>INDEPENDENT<br/>CREATIVE DEVELOPER</span><b>vk/</b></div><div className="id-avatar">VK<span>✦</span></div><div className="id-name">VISWANATH K</div><div className="id-role">FRONT-END & WORDPRESS</div><div className="id-bottom"><span>Bangalore, INDIA<br/>PORTFOLIO / 2026</span><div className="barcode"/></div></div><div className="id-face id-back"><div className="id-slot"/><span className="label">Good ideas deserve good execution.</span><strong>LET’S<br/>MAKE<br/>IT REAL.</strong><span>viswaofficial48@gmail.com</span><div className="barcode"/></div></div></div>
+ </section>;
+}
